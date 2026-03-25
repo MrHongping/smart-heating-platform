@@ -1,6 +1,7 @@
 #include "web_server.h"
 #include "system_status.h"
 #include "config.h"
+#include "temp_curve.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <esp_http_server.h>
@@ -203,6 +204,126 @@ static esp_err_t set_pid_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+// API: 开始温度曲线
+static esp_err_t start_curve_handler(httpd_req_t *req)
+{
+    char buf[100];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0) {
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+    
+    cJSON *root = cJSON_Parse(buf);
+    if (root) {
+        cJSON *name = cJSON_GetObjectItem(root, "name");
+        if (cJSON_IsString(name)) {
+            bool success = temp_curve_start(name->valuestring);
+            if (success) {
+                ESP_LOGI(TAG, "Started temperature curve: %s", name->valuestring);
+                httpd_resp_send(req, "{\"status\": \"ok\"}", -1);
+            } else {
+                ESP_LOGE(TAG, "Failed to start temperature curve: %s", name->valuestring);
+                httpd_resp_send(req, "{\"status\": \"error\", \"message\": \"Failed to start curve\"}", -1);
+            }
+        }
+        cJSON_Delete(root);
+    }
+    
+    return ESP_OK;
+}
+
+// API: 停止温度曲线
+static esp_err_t stop_curve_handler(httpd_req_t *req)
+{
+    temp_curve_stop();
+    httpd_resp_send(req, "{\"status\": \"ok\"}", -1);
+    return ESP_OK;
+}
+
+// API: 上传温度曲线
+static esp_err_t upload_curve_handler(httpd_req_t *req)
+{
+    char buf[1024];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0) {
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+    
+    cJSON *root = cJSON_Parse(buf);
+    if (root) {
+        cJSON *name = cJSON_GetObjectItem(root, "name");
+        cJSON *points = cJSON_GetObjectItem(root, "points");
+        
+        if (cJSON_IsString(name) && cJSON_IsArray(points)) {
+            temp_curve_t curve;
+            strcpy(curve.name, name->valuestring);
+            curve.point_count = cJSON_GetArraySize(points);
+            
+            // 分配曲线点内存
+            curve.points = malloc(sizeof(temp_curve_point_t) * curve.point_count);
+            if (curve.points) {
+                // 解析曲线点
+                for (int i = 0; i < curve.point_count; i++) {
+                    cJSON *point = cJSON_GetArrayItem(points, i);
+                    cJSON *time = cJSON_GetObjectItem(point, "time");
+                    cJSON *temp = cJSON_GetObjectItem(point, "temp");
+                    
+                    if (cJSON_IsNumber(time) && cJSON_IsNumber(temp)) {
+                        curve.points[i].time_seconds = (uint32_t)cJSON_GetNumberValue(time);
+                        curve.points[i].target_temp = (float)cJSON_GetNumberValue(temp);
+                    }
+                }
+                
+                // 保存曲线
+                bool success = temp_curve_save(&curve);
+                free(curve.points);
+                
+                if (success) {
+                    ESP_LOGI(TAG, "Uploaded temperature curve: %s", name->valuestring);
+                    httpd_resp_send(req, "{\"status\": \"ok\"}", -1);
+                } else {
+                    ESP_LOGE(TAG, "Failed to upload temperature curve: %s", name->valuestring);
+                    httpd_resp_send(req, "{\"status\": \"error\", \"message\": \"Failed to save curve\"}", -1);
+                }
+            } else {
+                httpd_resp_send(req, "{\"status\": \"error\", \"message\": \"Memory allocation failed\"}", -1);
+            }
+        }
+        cJSON_Delete(root);
+    }
+    
+    return ESP_OK;
+}
+
+// API: 获取温度曲线状态
+static esp_err_t get_curve_status_handler(httpd_req_t *req)
+{
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddBoolToObject(root, "is_running", temp_curve_is_running());
+    
+    temp_curve_t *curve = temp_curve_get_current();
+    if (curve) {
+        cJSON_AddStringToObject(root, "name", curve->name);
+        cJSON *points = cJSON_CreateArray();
+        for (int i = 0; i < curve->point_count; i++) {
+            cJSON *point = cJSON_CreateObject();
+            cJSON_AddNumberToObject(point, "time", curve->points[i].time_seconds);
+            cJSON_AddNumberToObject(point, "temp", curve->points[i].target_temp);
+            cJSON_AddItemToArray(points, point);
+        }
+        cJSON_AddItemToObject(root, "points", points);
+    }
+    
+    char *json_str = cJSON_PrintUnformatted(root);
+    httpd_resp_send(req, json_str, strlen(json_str));
+    free(json_str);
+    cJSON_Delete(root);
+    
+    return ESP_OK;
+}
+
 // 静态文件处理
 static esp_err_t static_file_handler(httpd_req_t *req)
 {
@@ -276,6 +397,39 @@ void web_server_init(void)
         };
         httpd_register_uri_handler(server, &ws_uri);
         
+        // 注册温度曲线相关API
+        httpd_uri_t start_curve_uri = {
+            .uri = "/api/curve/start",
+            .method = HTTP_POST,
+            .handler = start_curve_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(server, &start_curve_uri);
+        
+        httpd_uri_t stop_curve_uri = {
+            .uri = "/api/curve/stop",
+            .method = HTTP_POST,
+            .handler = stop_curve_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(server, &stop_curve_uri);
+        
+        httpd_uri_t upload_curve_uri = {
+            .uri = "/api/curve/upload",
+            .method = HTTP_POST,
+            .handler = upload_curve_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(server, &upload_curve_uri);
+        
+        httpd_uri_t get_curve_status_uri = {
+            .uri = "/api/curve/status",
+            .method = HTTP_GET,
+            .handler = get_curve_status_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(server, &get_curve_status_uri);
+        
         // 注册静态文件处理程序
         httpd_uri_t static_uri = {
             .uri = "/*",
@@ -290,6 +444,10 @@ void web_server_init(void)
         ESP_LOGI(TAG, "GET /api/status - Get system status");
         ESP_LOGI(TAG, "POST /api/set_temp - Set target temperature");
         ESP_LOGI(TAG, "POST /api/set_pid - Set PID parameters");
+        ESP_LOGI(TAG, "POST /api/curve/start - Start temperature curve");
+        ESP_LOGI(TAG, "POST /api/curve/stop - Stop temperature curve");
+        ESP_LOGI(TAG, "POST /api/curve/upload - Upload temperature curve");
+        ESP_LOGI(TAG, "GET /api/curve/status - Get curve status");
         ESP_LOGI(TAG, "WebSocket - Real-time temperature updates");
     } else {
         ESP_LOGE(TAG, "Failed to start web server");

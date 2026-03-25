@@ -67,6 +67,33 @@
             </div>
         </div>
         
+        <!-- 温度曲线控制 -->
+        <div class="curve-section">
+            <h2>温度曲线控制</h2>
+            <div class="curve-controls">
+                <div class="curve-item">
+                    <label for="curve-name">曲线名称:</label>
+                    <input type="text" id="curve-name" value="reflow">
+                </div>
+                <div class="curve-item">
+                    <label for="curve-time">时间(s):</label>
+                    <input type="number" id="curve-time" value="0" step="10">
+                    <label for="curve-temp">温度(°C):</label>
+                    <input type="number" id="curve-temp" value="25" step="5">
+                    <button class="set-btn" id="add-curve-point">添加点</button>
+                </div>
+                <div class="curve-item">
+                    <label>曲线点:</label>
+                    <ul id="curve-points-list"></ul>
+                </div>
+                <div class="curve-buttons">
+                    <button class="set-btn" id="upload-curve">上传曲线</button>
+                    <button class="set-btn" id="start-curve">开始曲线</button>
+                    <button class="set-btn" id="stop-curve">停止曲线</button>
+                </div>
+            </div>
+        </div>
+        
         <!-- 温度曲线图 -->
         <div class="chart-section">
             <h2>温度趋势</h2>
