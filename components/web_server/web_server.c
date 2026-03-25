@@ -83,32 +83,6 @@ static void send_ws_message_to_all(const char *message)
 // WebSocket事件处理
 static esp_err_t ws_handler(httpd_req_t *req)
 {
-    // 检查是否是WebSocket升级请求
-    if (req->method == HTTP_GET) {
-        // 处理WebSocket连接
-        httpd_ws_frame_t ws_pkt;
-        memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-        ws_pkt.type = HTTPD_WS_TYPE_TEXT;
-        
-        // 接受WebSocket连接
-        esp_err_t ret = httpd_ws_upgrade_req(req, &ws_pkt);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "httpd_ws_upgrade_req failed: %s", esp_err_to_name(ret));
-            return ret;
-        }
-        
-        // 获取套接字描述符并添加到客户端列表
-        int sockfd = httpd_req_to_sockfd(req);
-        if (ws_client_count < 10) {
-            ws_clients[ws_client_count++] = sockfd;
-            ESP_LOGI(TAG, "WebSocket client connected, count: %d, sockfd: %d", ws_client_count, sockfd);
-        } else {
-            ESP_LOGE(TAG, "WebSocket client limit reached");
-        }
-        
-        return ESP_OK;
-    }
-    
     // 处理WebSocket帧
     httpd_ws_frame_t ws_pkt;
     memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
@@ -132,6 +106,20 @@ static esp_err_t ws_handler(httpd_req_t *req)
     ws_pkt.len = strlen(json_str);
     ret = httpd_ws_send_frame(req, &ws_pkt);
     free(json_str);
+    
+    // 获取套接字描述符并添加到客户端列表
+    int sockfd = httpd_req_to_sockfd(req);
+    bool client_exists = false;
+    for (int i = 0; i < ws_client_count; i++) {
+        if (ws_clients[i] == sockfd) {
+            client_exists = true;
+            break;
+        }
+    }
+    if (!client_exists && ws_client_count < 10) {
+        ws_clients[ws_client_count++] = sockfd;
+        ESP_LOGI(TAG, "WebSocket client connected, count: %d, sockfd: %d", ws_client_count, sockfd);
+    }
     
     return ret;
 }

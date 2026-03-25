@@ -4,6 +4,8 @@
 #include <string.h>
 #include <esp_system.h>
 #include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 static const char *TAG = "temp_curve";
 
@@ -88,8 +90,8 @@ bool temp_curve_save(const temp_curve_t *curve)
     fprintf(file, "{\"name\":\"%s\", \"points\":[", curve->name);
     
     for (int i = 0; i < curve->point_count; i++) {
-        fprintf(file, "{\"time\":%u,\"temp\":%.1f}", 
-                curve->points[i].time_seconds, 
+        fprintf(file, "{\"time\":%lu,\"temp\":%.1f}", 
+                (unsigned long)curve->points[i].time_seconds, 
                 curve->points[i].target_temp);
         if (i < curve->point_count - 1) {
             fprintf(file, ",");
@@ -118,7 +120,7 @@ bool temp_curve_start(const char *name)
     
     // 初始化曲线执行状态
     current_curve.is_running = true;
-    current_curve.start_time = esp_timer_get_time() / 1000; // 转换为毫秒
+    current_curve.start_time = xTaskGetTickCount() * portTICK_PERIOD_MS; // 转换为毫秒
     current_curve.current_point_index = 0;
     
     ESP_LOGI(TAG, "Started curve: %s", name);
@@ -156,7 +158,7 @@ float temp_curve_get_current_target(void)
     }
     
     // 计算当前运行时间（秒）
-    uint32_t current_time = (esp_timer_get_time() / 1000) - current_curve.start_time;
+    uint32_t current_time = (xTaskGetTickCount() * portTICK_PERIOD_MS) - current_curve.start_time;
     current_time /= 1000; // 转换为秒
     
     // 找到当前时间点对应的曲线段
