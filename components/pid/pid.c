@@ -1,13 +1,11 @@
 #include "pid.h"
 #include "system_status.h"
+#include "config.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <stdio.h>
 
 // PID参数和状态
-static float g_kp = 10.0;
-static float g_ki = 0.5;
-static float g_kd = 50.0;
 static float g_last_error = 0.0;
 static float g_integral = 0.0;
 static float g_integral_limit = 100.0;
@@ -22,10 +20,10 @@ void pid_init(void)
 float pid_calculate(float setpoint, float process_value)
 {
     // 获取最新PID参数
-    system_status_t status = system_status_get();
-    g_kp = status.pid_kp;
-    g_ki = status.pid_ki;
-    g_kd = status.pid_kd;
+    config_t config = config_get();
+    float g_kp = config.pid_kp;
+    float g_ki = config.pid_ki;
+    float g_kd = config.pid_kd;
     
     // 计算误差
     float error = setpoint - process_value;

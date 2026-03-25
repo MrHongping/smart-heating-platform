@@ -26,47 +26,55 @@
   - 优先支持 PT100 + MAX31865（SPI）
   - 兼容 NTC（ADC）
 - **显示模块**：I2C OLED（SSD1306）
+- **温度调节**：电位器（ADC）
 - **网络**：WiFi（ESP32内置）
 
 ## 系统功能
 
 ### 1. 温度采集
+
 - 支持周期性采样（周期 100ms）
 - 对采样数据进行滤波（滑动平均）
 - 转换为实际温度值（单位：℃）
 - 提供当前温度数据给控制系统
 
 ### 2. 温控算法
+
 - 实现 PID 控制算法
 - 输入：当前温度、目标温度
-- 输出：加热功率（0~100%）
+- 输出：加热功率（0\~100%）
 - 支持参数 Kp / Ki / Kd 可调
 - 积分项需限制（防止积分饱和）
-- 输出需限制在 0~100%
+- 输出需限制在 0\~100%
 
 ### 3. 加热控制（SSR）
+
 - 采用时间比例控制（Time Proportional Control）
 - 设定固定时间窗口（1 秒）
 - 根据 PID 输出占比控制 SSR 开关时间
 
 ### 4. 显示功能（I2C）
+
 - 显示内容：当前温度、目标温度、加热状态、PID 输出百分比
 - 刷新频率：500ms
 
 ### 5. Web 控制功能
+
 - 提供 HTTP 服务，用于远程控制与监控
 - API 接口：
   - GET /api/status - 获取系统状态
-  - POST /api/set_temp - 设置目标温度
-  - POST /api/set_pid - 设置 PID 参数
+  - POST /api/set\_temp - 设置目标温度
+  - POST /api/set\_pid - 设置 PID 参数
 - WebSocket 实时推送温度数据（1Hz）
 
 ### 6. 系统状态管理
+
 - 维护统一状态结构
 - 支持多任务访问（线程安全）
 - 使用 FreeRTOS 机制（Mutex）
 
 ### 7. 多任务调度（FreeRTOS）
+
 - 温度采集任务（100ms）
 - PID 控制任务（100ms）
 - SSR控制任务（1s窗口）
@@ -75,7 +83,8 @@
 - 安全保护任务（500ms）
 
 ### 8. 安全机制
-- 过温保护：超过设定最大温度（250℃）立即关闭 SSR
+
+- 过温保护：超过设定最大温度（400℃）立即关闭 SSR
 - 传感器异常检测：温度异常（断线、异常值）停止加热
 - 看门狗机制：防止系统卡死
 
@@ -87,14 +96,17 @@ Smart-heating-platform/
 ├── main/
 │   ├── CMakeLists.txt      # main目录CMake文件
 │   └── main.c              # 主入口文件
-└── components/
-    ├── display/            # 显示模块
-    ├── pid/                # PID控制模块
-    ├── safety/             # 安全保护模块
-    ├── ssr_control/        # SSR控制模块
-    ├── system_status/      # 系统状态管理模块
-    ├── temperature/        # 温度采集模块
-    └── web_server/         # Web服务模块
+├── components/
+│   ├── config/             # 配置管理模块
+│   ├── display/            # 显示模块
+│   ├── pid/                # PID控制模块
+│   ├── safety/             # 安全保护模块
+│   ├── ssr_control/        # SSR控制模块
+│   ├── system_status/      # 系统状态管理模块
+│   ├── temperature/        # 温度采集模块
+│   └── web_server/         # Web服务模块
+└── spiffs/
+    └── config.json         # 配置文件
 ```
 
 ## 环境要求
@@ -103,6 +115,78 @@ Smart-heating-platform/
 - **编译器**：xtensa-esp32-elf-gcc
 - **开发板**：ESP32 系列开发板
 
+## 硬件接线
+
+### 电位器接线
+| 电位器引脚 | ESP32 引脚 | 说明 |
+|-----------|------------|------|
+| VCC       | 3.3V       | 电源正极 |
+| GND       | GND        | 电源负极 |
+| 信号       | GPIO34     | ADC输入 |
+
+### SSR接线
+| SSR引脚 | 连接 | 说明 |
+|---------|------|------|
+| 控制端1 | GPIO2 | ESP32控制信号 |
+| 控制端2 | GND  | 接地 |
+| 负载端1 | 电源输入 | 连接电源 |
+| 负载端2 | 加热板 | 连接加热板 |
+
+### OLED显示屏接线
+| OLED引脚 | ESP32引脚 | 说明 |
+|----------|-----------|------|
+| VCC      | 3.3V      | 电源正极 |
+| GND      | GND       | 电源负极 |
+| SCL      | GPIO22    | I2C时钟 |
+| SDA      | GPIO21    | I2C数据 |
+
+### 温度传感器接线
+| 传感器类型 | 连接方式 | 说明 |
+|-----------|----------|------|
+| PT100 + MAX31865 | SPI接口 | 使用SPI通信 |
+| NTC | ADC接口 | 连接到ADC引脚 |
+
+## 配置文件
+
+系统使用 `spiffs/config.json` 文件来存储配置参数，支持以下配置项：
+
+```json
+{
+  "min_temperature": 0.0,
+  "max_temperature": 400.0,
+  "default_target_temp": 100.0,
+  "ssr_pin": 2,
+  "potentiometer_pin": 34,
+  "i2c_scl_pin": 22,
+  "i2c_sda_pin": 21,
+  "pid_kp": 10.0,
+  "pid_ki": 0.5,
+  "pid_kd": 50.0,
+  "temp_sample_interval": 100,
+  "display_update_interval": 500,
+  "ssr_control_window": 1000,
+  "wifi_ssid": "Smart-Heating",
+  "wifi_password": "12345678"
+}
+```
+
+**配置项说明**：
+- `min_temperature`：最低温度限制（℃）
+- `max_temperature`：最高温度限制（℃）
+- `default_target_temp`：默认目标温度（℃）
+- `ssr_pin`：SSR控制引脚
+- `potentiometer_pin`：电位器ADC引脚
+- `i2c_scl_pin`：I2C SCL引脚
+- `i2c_sda_pin`：I2C SDA引脚
+- `pid_kp`：PID比例系数
+- `pid_ki`：PID积分系数
+- `pid_kd`：PID微分系数
+- `temp_sample_interval`：温度采样间隔（ms）
+- `display_update_interval`：显示更新间隔（ms）
+- `ssr_control_window`：SSR控制窗口（ms）
+- `wifi_ssid`：WiFi SSID
+- `wifi_password`：WiFi密码
+
 ## 安装与编译
 
 1. **克隆项目**
@@ -110,23 +194,19 @@ Smart-heating-platform/
    git clone <项目地址>
    cd Smart-heating-platform
    ```
-
 2. **配置 ESP-IDF 环境**
    ```bash
    # 确保 ESP-IDF 环境已正确配置
    export IDF_PATH=<ESP-IDF安装路径>
    ```
-
 3. **编译项目**
    ```bash
    idf.py build
    ```
-
 4. **烧录到 ESP32**
    ```bash
    idf.py flash
    ```
-
 5. **查看串口输出**
    ```bash
    idf.py monitor
@@ -135,10 +215,12 @@ Smart-heating-platform/
 ## 使用方法
 
 ### 本地控制
+
 - 系统启动后，OLED 屏幕会显示当前温度、目标温度、加热状态和 PID 输出
 - 可通过 Web 页面进行远程控制
 
 ### Web 控制
+
 1. 连接到 ESP32 创建的 WiFi 网络（默认 SSID：Smart-Heating）
 2. 打开浏览器，访问 `http://192.168.4.1`
 3. 在 Web 页面上：
@@ -150,11 +232,13 @@ Smart-heating-platform/
 ## API 接口
 
 ### 获取系统状态
+
 ```
 GET /api/status
 ```
 
 **返回示例**：
+
 ```json
 {
   "current_temp": 185.3,
@@ -165,11 +249,13 @@ GET /api/status
 ```
 
 ### 设置目标温度
+
 ```
 POST /api/set_temp
 ```
 
 **请求示例**：
+
 ```json
 {
   "target": 200
@@ -177,11 +263,13 @@ POST /api/set_temp
 ```
 
 ### 设置 PID 参数
+
 ```
 POST /api/set_pid
 ```
 
 **请求示例**：
+
 ```json
 {
   "kp": 10,
@@ -192,7 +280,7 @@ POST /api/set_pid
 
 ## 安全注意事项
 
-1. **过温保护**：系统会在温度超过 250℃ 时自动关闭加热
+1. **过温保护**：系统会在温度超过 400℃ 时自动关闭加热
 2. **传感器异常**：当检测到温度传感器异常时，系统会停止加热
 3. **电源安全**：确保 SSR 与加热板的功率匹配
 4. **散热**：确保系统有良好的散热条件

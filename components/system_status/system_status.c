@@ -1,4 +1,5 @@
 #include "system_status.h"
+#include "config.h"
 
 // 全局状态变量
 static system_status_t g_system_status = {
@@ -22,6 +23,17 @@ void system_status_init(void)
     if (g_status_mutex == NULL) {
         printf("Failed to create status mutex\n");
     }
+    
+    // 从配置文件加载默认值
+    config_t config = config_get();
+    if (xSemaphoreTake(g_status_mutex, portMAX_DELAY)) {
+        g_system_status.target_temp = config.default_target_temp;
+        g_system_status.pid_kp = config.pid_kp;
+        g_system_status.pid_ki = config.pid_ki;
+        g_system_status.pid_kd = config.pid_kd;
+        xSemaphoreGive(g_status_mutex);
+    }
+    printf("System status initialized with default values from config\n");
 }
 
 system_status_t system_status_get(void)

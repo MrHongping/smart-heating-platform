@@ -1,0 +1,17 @@
+{
+  "min_temperature": 0.0,
+  "max_temperature": 400.0,
+  "default_target_temp": 100.0,
+  "ssr_pin": 2,
+  "potentiometer_pin": 34,
+  "i2c_scl_pin": 22,
+  "i2c_sda_pin": 21,
+  "pid_kp": 10.0,
+  "pid_ki": 0.5,
+  "pid_kd": 50.0,
+  "temp_sample_interval": 100,
+  "display_update_interval": 500,
+  "ssr_control_window": 1000,
+  "wifi_ssid": "Smart-Heating",
+  "wifi_password": "12345678"
+}

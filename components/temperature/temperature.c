@@ -1,5 +1,6 @@
 #include "temperature.h"
 #include "system_status.h"
+#include "config.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <stdio.h>
@@ -53,9 +54,10 @@ float temperature_read(void)
 
 void temperature_task(void *pvParameters)
 {
+    config_t config = config_get();
     while (1) {
         float temp = temperature_read();
         system_status_update_current_temp(temp);
-        vTaskDelay(pdMS_TO_TICKS(100)); // 100ms采样周期
+        vTaskDelay(pdMS_TO_TICKS(config.temp_sample_interval)); // 使用配置的采样周期
     }
 }
