@@ -243,8 +243,9 @@ GET /api/status
 {
   "current_temp": 185.3,
   "target_temp": 200,
-  "power": 65,
-  "heating": true
+  "pid_output": 65.0,
+  "heating": true,
+  "system_running": true
 }
 ```
 
