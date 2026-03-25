@@ -1,0 +1,77 @@
+# Build output
+build/
+
+# Temporary files
+*.tmp
+*.temp
+
+# IDE configuration files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ESP-IDF specific files
+CMakeCache.txt
+CMakeFiles/
+Makefile
+component_project_vars.mk
+
+# Compilation outputs
+*.o
+*.a
+*.elf
+*.bin
+*.map
+*.hex
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Dependency directories
+components/esp-idf/
+
+# Local configuration files
+local.properties
+
+# Log files
+*.log
+
+# Test files
+/test/
+
+# Coverage files
+coverage/
+*.gcda
+*.gcno
+
+# Documentation build files
+docs/build/
+
+# Environment variables file
+.env
+
+# macOS specific files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows specific files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux specific files
+*~
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
