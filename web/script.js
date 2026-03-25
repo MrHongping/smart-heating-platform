@@ -168,7 +168,7 @@ function updateUI(data) {
     document.getElementById('current-temp').textContent = `${data.current_temp.toFixed(1)} °C`;
     document.getElementById('target-temp').textContent = `${data.target_temp.toFixed(1)} °C`;
     document.getElementById('heating-status').textContent = data.heating ? '开启' : '关闭';
-    document.getElementById('pid-output').textContent = `${data.power.toFixed(1)} %`;
+    document.getElementById('pid-output').textContent = `${data.pid_output.toFixed(1)} %`;
     document.getElementById('system-status').textContent = '运行中';
     
     // 更新温度输入框

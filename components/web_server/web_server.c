@@ -14,7 +14,7 @@ static const char *TAG = "web_server";
 static httpd_handle_t server = NULL;
 
 // WebSocket 客户端列表
-static httpd_handle_t ws_clients[10];
+static int ws_clients[10];
 static int ws_client_count = 0;
 
 // 系统状态JSON
@@ -39,13 +39,13 @@ static char *get_system_status_json(void)
 static void send_ws_message_to_all(const char *message)
 {
     for (int i = 0; i < ws_client_count; i++) {
-        if (ws_clients[i]) {
+        if (ws_clients[i] > 0) {
             httpd_ws_frame_t ws_pkt;
             memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
             ws_pkt.type = HTTPD_WS_TYPE_TEXT;
             ws_pkt.payload = (uint8_t *)message;
             ws_pkt.len = strlen(message);
-            httpd_ws_send_frame(ws_clients[i], &ws_pkt);
+            httpd_ws_send_frame_async(server, ws_clients[i], &ws_pkt);
         }
     }
 }
@@ -82,6 +82,32 @@ static void send_ws_message_to_all(const char *message)
 // WebSocket事件处理
 static esp_err_t ws_handler(httpd_req_t *req)
 {
+    // 检查是否是WebSocket升级请求
+    if (req->method == HTTP_GET) {
+        // 处理WebSocket连接
+        httpd_ws_frame_t ws_pkt;
+        memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+        ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+        
+        // 接受WebSocket连接
+        esp_err_t ret = httpd_ws_upgrade_req(req, &ws_pkt);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "httpd_ws_upgrade_req failed: %s", esp_err_to_name(ret));
+            return ret;
+        }
+        
+        // 获取套接字描述符并添加到客户端列表
+        int sockfd = httpd_req_to_sockfd(req);
+        if (ws_client_count < 10) {
+            ws_clients[ws_client_count++] = sockfd;
+            ESP_LOGI(TAG, "WebSocket client connected, count: %d, sockfd: %d", ws_client_count, sockfd);
+        } else {
+            ESP_LOGE(TAG, "WebSocket client limit reached");
+        }
+        
+        return ESP_OK;
+    }
+    
     // 处理WebSocket帧
     httpd_ws_frame_t ws_pkt;
     memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
@@ -166,7 +192,8 @@ static esp_err_t set_pid_handler(httpd_req_t *req)
             float ki_val = (float)cJSON_GetNumberValue(ki);
             float kd_val = (float)cJSON_GetNumberValue(kd);
             
-            // 这里需要添加设置PID参数的代码
+            // 设置PID参数
+            system_status_update_pid_params(kp_val, ki_val, kd_val);
             ESP_LOGI(TAG, "Set PID parameters: Kp=%.2f, Ki=%.3f, Kd=%.1f", kp_val, ki_val, kd_val);
         }
         cJSON_Delete(root);
