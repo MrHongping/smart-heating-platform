@@ -2,6 +2,10 @@
 const API_BASE_URL = '/api';
 const WS_BASE_URL = 'ws://' + window.location.host + '/ws';
 
+// 温度曲线数据
+let curvePoints = [];
+let isCurveRunning = false;
+
 // 温度数据历史
 let tempHistory = [];
 let timeLabels = [];
@@ -285,6 +289,143 @@ function bindEvents() {
         if (!isNaN(kp) && !isNaN(ki) && !isNaN(kd)) {
             setPIDParameters(kp, ki, kd);
         }
+    });
+    
+    // 温度曲线相关事件
+    if (document.getElementById('add-curve-point')) {
+        document.getElementById('add-curve-point').addEventListener('click', function() {
+            addCurvePoint();
+        });
+    }
+    
+    if (document.getElementById('upload-curve')) {
+        document.getElementById('upload-curve').addEventListener('click', function() {
+            uploadCurve();
+        });
+    }
+    
+    if (document.getElementById('start-curve')) {
+        document.getElementById('start-curve').addEventListener('click', function() {
+            startCurve();
+        });
+    }
+    
+    if (document.getElementById('stop-curve')) {
+        document.getElementById('stop-curve').addEventListener('click', function() {
+            stopCurve();
+        });
+    }
+}
+
+// 添加曲线点
+function addCurvePoint() {
+    const time = parseInt(document.getElementById('curve-time').value) || 0;
+    const temp = parseFloat(document.getElementById('curve-temp').value) || 0;
+    
+    if (time >= 0 && temp >= 0) {
+        curvePoints.push({ time, temp });
+        updateCurvePointsList();
+    }
+}
+
+// 更新曲线点列表
+function updateCurvePointsList() {
+    const list = document.getElementById('curve-points-list');
+    if (list) {
+        list.innerHTML = '';
+        curvePoints.forEach((point, index) => {
+            const li = document.createElement('li');
+            li.textContent = `时间: ${point.time}s, 温度: ${point.temp}°C`;
+            list.appendChild(li);
+        });
+    }
+}
+
+// 上传温度曲线
+function uploadCurve() {
+    const curveName = document.getElementById('curve-name').value || 'default';
+    
+    fetch(`${API_BASE_URL}/curve/upload`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            name: curveName,
+            points: curvePoints.map(p => ({ time: p.time, temp: p.temp }))
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            alert('温度曲线上传成功');
+        } else {
+            alert('温度曲线上传失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('上传温度曲线失败:', error);
+        alert('上传温度曲线失败');
+    });
+}
+
+// 开始温度曲线
+function startCurve() {
+    const curveName = document.getElementById('curve-name').value || 'default';
+    
+    fetch(`${API_BASE_URL}/curve/start`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name: curveName })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            alert('温度曲线开始执行');
+            isCurveRunning = true;
+        } else {
+            alert('温度曲线启动失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('启动温度曲线失败:', error);
+        alert('启动温度曲线失败');
+    });
+}
+
+// 停止温度曲线
+function stopCurve() {
+    fetch(`${API_BASE_URL}/curve/stop`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            alert('温度曲线已停止');
+            isCurveRunning = false;
+        }
+    })
+    .catch(error => {
+        console.error('停止温度曲线失败:', error);
+        alert('停止温度曲线失败');
+    });
+}
+
+// 获取温度曲线状态
+function getCurveStatus() {
+    fetch(`${API_BASE_URL}/curve/status`)
+    .then(response => response.json())
+    .then(data => {
+        isCurveRunning = data.is_running;
+        if (data.is_running && data.points) {
+            curvePoints = data.points.map(p => ({ time: p.time, temp: p.temp }));
+            updateCurvePointsList();
+        }
+    })
+    .catch(error => {
+        console.error('获取温度曲线状态失败:', error);
     });
 }
 

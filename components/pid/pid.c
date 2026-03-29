@@ -1,6 +1,7 @@
 #include "pid.h"
 #include "system_status.h"
 #include "config.h"
+#include "temp_curve.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <stdio.h>
@@ -60,7 +61,14 @@ void pid_task(void *pvParameters)
 {
     while (1) {
         system_status_t status = system_status_get();
-        float output = pid_calculate(status.target_temp, status.current_temp);
+        float target_temp = status.target_temp;
+        
+        // 如果温度曲线正在运行，使用曲线计算的目标温度
+        if (temp_curve_is_running()) {
+            target_temp = temp_curve_get_current_target();
+        }
+        
+        float output = pid_calculate(target_temp, status.current_temp);
         system_status_update_pid_output(output);
         vTaskDelay(pdMS_TO_TICKS(100)); // 100ms控制周期
     }

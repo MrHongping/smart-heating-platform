@@ -180,6 +180,54 @@ h2 {
     height: 300px;
 }
 
+/* 温度曲线控制区域 */
+.curve-section {
+    margin-bottom: 30px;
+}
+
+.curve-controls {
+    background-color: #ecf0f1;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.curve-item {
+    margin-bottom: 15px;
+}
+
+.curve-item label {
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.curve-item input {
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-right: 15px;
+}
+
+#curve-points-list {
+    list-style-type: none;
+    margin-top: 10px;
+    padding-left: 20px;
+}
+
+#curve-points-list li {
+    margin-bottom: 5px;
+    padding: 5px;
+    background-color: #fff;
+    border-radius: 4px;
+}
+
+.curve-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .temperature-section {
@@ -197,5 +245,13 @@ h2 {
     
     .temp-control {
         flex-wrap: wrap;
+    }
+    
+    .curve-buttons {
+        flex-direction: column;
+    }
+    
+    .curve-buttons button {
+        width: 100%;
     }
 }

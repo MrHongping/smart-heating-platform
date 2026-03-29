@@ -15,8 +15,8 @@ typedef struct {
     bool heating;           // 加热状态
     bool system_running;    // 系统运行状态
     float pid_kp;           // PID参数
-    float pid_ki;           
-    float pid_kd;           
+    float pid_ki;           // PID参数
+    float pid_kd;           // PID参数
 } system_status_t;
 
 // 函数声明

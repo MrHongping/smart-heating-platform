@@ -1,5 +1,5 @@
 idf_component_register(
     SRCS "pid.c"
     INCLUDE_DIRS "include"
-    REQUIRES system_status freertos config
+    REQUIRES system_status freertos config temp_curve
 )

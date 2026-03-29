@@ -11,6 +11,7 @@
 #include "safety.h"
 #include "potentiometer.h"
 #include "config.h"
+#include "temp_curve.h"
 
 void app_main(void)
 {
@@ -24,6 +25,7 @@ void app_main(void)
     web_server_init();
     safety_init();
     potentiometer_init();
+    temp_curve_init();
 
     // 创建任务
     xTaskCreate(temperature_task, "temperature_task", 4096, NULL, 5, NULL);
